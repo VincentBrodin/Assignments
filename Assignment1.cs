@@ -1,4 +1,4 @@
-﻿namespace Assignment1;
+namespace Assignment1;
 
 internal abstract class Assignment1
 {
@@ -139,22 +139,27 @@ internal abstract class Assignment1
         GrabOrPlace();
         Move();
         Space();
+        
         GrabOrPlace(1);
         Move();
         GrabOrPlace();
         Space();
+        
         GrabOrPlace(2);
         Move();
         GrabOrPlace();
         Space();
+        
         GrabOrPlace(3);
         Move();
         GrabOrPlace();
         Move();
         Space();
+        
         GrabOrPlace(2);
         Move();
         GrabOrPlace();
+        Space();
         
         Print();
     }
