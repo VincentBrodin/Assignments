@@ -18,7 +18,7 @@ internal abstract class Assignment1
         {"farmer", "wolf", "rabbit", "carrot"}  
     };
     
-    private static void Main()
+    private static void Main(string[] args)
     {
         Console.WriteLine("Assignment 1");
         Space();
@@ -88,7 +88,7 @@ internal abstract class Assignment1
                     string? restart = Console.ReadLine();
                     if (restart == "y")
                     { 
-                        Main();
+                        Main(new string[]{});
                     }
                     return;
                 }
@@ -118,7 +118,7 @@ internal abstract class Assignment1
                     string? restart = Console.ReadLine();
                     if (restart == "y")
                     { 
-                        Main();
+                        Main(new string[]{});
                     }
                 }
             }
