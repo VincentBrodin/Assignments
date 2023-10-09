@@ -1,350 +1,215 @@
-namespace Assignment1;
+namespace Assignment2;
 
-internal abstract class Assignment1
+internal static class Program
 {
-    private class Boat
-    {
-        public string Character = "";
-        public int CharacterIndex = -1;
-    }
-    private static int _currentBeach = 1;
-    private static bool _holding;
+    //SETTINGS
+    private const string StartNotation = "1/3/5/7";
     
-
-    private static readonly Boat CurrentBoat = new Boat();
-    
-    private static readonly string[,] Beach = {
-        {"" , "" , "" , ""},
-        {"farmer", "wolf", "rabbit", "carrot"}  
-    };
     
     private static void Main(string[] args)
     {
-        Console.WriteLine("Assignment 1");
-        Space();
-        Console.WriteLine("You are a farmer faced with a challenge.");
-        Console.WriteLine("You have a wolf, a rabbit, and a carrot that you need to transport across a river.");
-        
-        Space();
-        Console.WriteLine("Simple enough, right?");
-        Space();
-        
-        Console.WriteLine("You have a boat that can only carry you and one other object or animal.");
-        Console.WriteLine("You cannot leave the wolf alone with the rabbit or the rabbit alone with the carrot.");
-        
-        Space();
-        
-        Console.WriteLine("Here are the rules:");
-        Console.WriteLine("Rule1: The boat can only carry one object or animal in addition to the farmer.");
-        Console.WriteLine("Rule2: The wolf and the rabbit cannot be left alone together.");
-        Console.WriteLine("Rule3: The rabbit and the carrot cannot be left alone together.");      
-        Space();
-        
-        Console.WriteLine("Do you want to play or see solution? (p/s)");
-        string? input = Console.ReadLine();
-        if (input == "p")
+        //Get players
+        int playerCount = GetInput("How many players? (1/2)", 1, 2);
+        int currentPlayerIndex = 0;
+        Player[] players = new Player[2];
+        if(playerCount == 1)
         {
-            Play();
-        }
-        else if (input == "s")
-        {
-            Solution();
+            Console.WriteLine("Enter player 1 name");
+            string player1 = Console.ReadLine() ?? "Player 1";
+            players[0] = new Player(player1, false);
+            players[1] = new Player("AI", true);
         }
         else
         {
-            Console.WriteLine("Invalid input");
+            Console.WriteLine("Enter player 1 name");
+            string player1 = Console.ReadLine() ?? "Player 1";
+            Console.WriteLine("Enter player 2 name");
+            string player2 = Console.ReadLine() ?? "Player 2";
+            
+            players[0] = new Player(player1, false);
+            players[1] = new Player(player2, false);
         }
-    }
-
-    #region Modes
-    private static void Play()
-    {
+        
         Console.Clear();
         
+        //Get start notation
+        string startNotation = StartNotation;
+        Console.WriteLine("Do you want to enter your own start notation? (y/n)");
+        string? input = Console.ReadLine();
+        if (input == "y")
+        {
+            Console.WriteLine("Enter your start notation");
+            startNotation = Console.ReadLine() ?? StartNotation;
+        }
+        
+        
+        //Init piles
+        (int pileCount, int maxSticks) = BreakUpNotation(startNotation);
+        
+        Pile[] piles = new Pile[pileCount];
+        for (int i = 0; i < piles.Length; i++)
+        {
+            piles[i] = new Pile(maxSticks);
+            for (int j = 0; j < piles[i].Sticks.Length; j++)
+            {
+                piles[i].Sticks[j] = new Stick(true);
+            }
+        }
+        
+        //Apply start notation
+        piles.SetNotation(startNotation);
+        
+        Console.Clear();
+        //Game Loop
         while (true)
         {
-            Space();
-            Print();
-            Console.WriteLine(_holding
-                ? "Whats your next move? (Travel: t) (Place: p)"
-                : "Whats your next move? (Travel: t) (Grab: index you want to grab)");
-            string? input = Console.ReadLine();
-            if (input == "")
+            Player currentPlayer = players[currentPlayerIndex];
+            Console.Clear();
+            Console.WriteLine(currentPlayer.Name + "'s turn");
+            piles.Print();
+
+            int chosenPile = 0, stickAmount = 0;
+            if (currentPlayer.IsAi)
             {
-                Console.WriteLine("Invalid input");
-                continue;
-            }
-            
-            if (input == "t")
-            {
-                Move();
-                if (!CheckIfValid(out string inValidReason))
-                {
-                    Space();
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine(inValidReason);
-                    Console.ForegroundColor = ConsoleColor.White;
-                    Console.WriteLine("Do you want to restart? (y/n)");
-                    string? restart = Console.ReadLine();
-                    if (restart == "y")
-                    { 
-                        Main(new string[]{});
-                    }
-                    return;
-                }
-            }
-            else if (input != null && char.IsDigit(input[0]) && !_holding)
-            {
-                int index = int.Parse(input) - 1;
-                if(index is > 0 and < 4)
-                {
-                    GrabOrPlace(index);
-                }
-                else
-                {
-                    Console.WriteLine(index == 0 ? "You can't grab the farmer" : "Invalid input");
-                }
-            }
-            else if (_holding && input == "p")
-            {
-                GrabOrPlace();
-                if (CheckIfWin())
-                {
-                    Space();
-                    Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine("You won!");
-                    Console.ForegroundColor = ConsoleColor.White;
-                    Console.WriteLine("Do you want to restart? (y/n)");
-                    string? restart = Console.ReadLine();
-                    if (restart == "y")
-                    { 
-                        Main(new string[]{});
-                    }
-                }
+                (chosenPile, stickAmount) = CalculateAiMove(piles.GetNotation());
             }
             else
             {
-                Console.WriteLine("Invalid input");
+                //Get pile
+                chosenPile = GetInput("Pick a pile", 1, piles.Length) - 1;
+            
+                //Get sticks
+                stickAmount = GetInput("Pick a number of sticks", 1, piles[chosenPile].Sticks.Count(stick => !stick.IsTaken));
+                
             }
+
+            piles[chosenPile].RemoveSticks(stickAmount);
+            
+            if (piles.All(pile => pile.Sticks.All(stick => stick.IsTaken)))
+            {
+                break;
+            }
+            
+            currentPlayerIndex = (currentPlayerIndex + 1) % 2;
         }
     }
-    private static void Solution()
+
+    private static (int,int) CalculateAiMove(string notation)
     {
-        Console.Clear();
-        Print();
-        Space();
-
-        GrabOrPlace(2);
-        Move();
-        GrabOrPlace();
-        Move();
-        Space();
-        
-        GrabOrPlace(1);
-        Move();
-        GrabOrPlace();
-        Space();
-        
-        GrabOrPlace(2);
-        Move();
-        GrabOrPlace();
-        Space();
-        
-        GrabOrPlace(3);
-        Move();
-        GrabOrPlace();
-        Move();
-        Space();
-        
-        GrabOrPlace(2);
-        Move();
-        GrabOrPlace();
-        Space();
-        
-        Print();
-    }
-    #endregion
-
-    #region Checks
-    private static bool CheckIfValid(out string inValidReason)
-    {
-        for (int i = 0; i < Beach.GetLength(0); i++)
-        {
-            bool hasRabbit = false;
-            bool hasWolf = false;
-            bool hasCarrot = false;
-            for (int j = 0; j < Beach.GetLength(1); j++)
-            {
-                switch (Beach[i, j])
-                {
-                    case "rabbit":
-                        hasRabbit = true;
-                        break;
-                    case "wolf":
-                        hasWolf = true;
-                        break;
-                    case "carrot":
-                        hasCarrot = true;
-                        break;
-                }
-            }
-
-            if (hasRabbit && hasCarrot)
-            {
-                inValidReason = "The rabbit ate the carrot";
-                return false;
-            }
-
-            if (hasRabbit && hasWolf)
-            {
-                inValidReason = "The wolf ate the rabbit";
-                return false;
-            }
-        }
-
-        inValidReason = string.Empty;
-        return true;
+        //TODO: Implement AI
+        return (0, 0);
     }
 
-    private static bool CheckIfWin()
+    private class Stick(bool isTaken)
     {
-        bool hasRabbit = false;
-        bool hasWolf = false;
-        bool hasCarrot = false;
-        for (int j = 0; j < Beach.GetLength(1); j++)
-        {
-            switch (Beach[0, j])
-            {
-                case "rabbit":
-                    hasRabbit = true;
-                    break;
-                case "wolf":
-                    hasWolf = true;
-                    break;
-                case "carrot":
-                    hasCarrot = true;
-                    break;
-            }
-        }
-        
-        return hasWolf && hasRabbit && hasCarrot;
-    }
-    #endregion
-    
-    #region Moves
-    private static void GrabOrPlace(int i)
-    {
-        _holding = true;
-        CurrentBoat.Character = Beach[_currentBeach, i];
-        CurrentBoat.CharacterIndex = i;
-        Beach[_currentBeach, i] = "";
-            
-        Console.ForegroundColor = ConsoleColor.Magenta;
-        Console.Write("\nFarmer ");
-        Console.ForegroundColor = ConsoleColor.White;
-            
-        Console.Write("grabs ");
-            
-        Console.ForegroundColor = GetCharacterColor(CurrentBoat.Character);
-        Console.Write(CurrentBoat.Character);
-        Console.ForegroundColor = ConsoleColor.White;
-            
-        Console.Write($" from beach {_currentBeach + 1}");
-    }
-    private static void GrabOrPlace()
-    {
-        Console.ForegroundColor = ConsoleColor.Magenta;
-        Console.Write("\nFarmer ");
-        Console.ForegroundColor = ConsoleColor.White;
-            
-        Console.Write("places ");
-            
-        Console.ForegroundColor = GetCharacterColor(CurrentBoat.Character);
-        Console.Write(CurrentBoat.Character);
-        Console.ForegroundColor = ConsoleColor.White;
-            
-        Console.Write($" at beach {_currentBeach + 1}");
-        
-        _holding = false;
-        Beach[_currentBeach, CurrentBoat.CharacterIndex] = CurrentBoat.Character;
-        CurrentBoat.Character = "";
+        public bool IsTaken = isTaken;
     }
     
-    private static void Move()
+    private class Pile(int maxSticks)
     {
-        Beach[_currentBeach, 0] = "";
-        _currentBeach = _currentBeach == 0 ? 1 : 0;
-        Beach[_currentBeach, 0] = "farmer";
-        
-        if (_holding)
-        {
-            Console.ForegroundColor = ConsoleColor.Magenta;
-            Console.Write("\nFarmer ");
-            Console.ForegroundColor = ConsoleColor.White;
-            
-            Console.Write("travels with ");
-            
-            Console.ForegroundColor = GetCharacterColor(CurrentBoat.Character);
-            Console.Write(CurrentBoat.Character);
-            Console.ForegroundColor = ConsoleColor.White;
-            
-            Console.Write($" to beach {_currentBeach+1}");
-        }
-        else
-        {
-            Console.ForegroundColor = ConsoleColor.Magenta;
-            Console.Write("\nFarmer ");
-            Console.ForegroundColor = ConsoleColor.White;
+        public readonly Stick[] Sticks = new Stick[maxSticks];
 
-            Console.Write($"travels alone to beach {_currentBeach+1}");
-        }
-    }
-    #endregion
-
-    #region Other
-    private static ConsoleColor GetCharacterColor(string boatCharacter)
-    {
-        switch (boatCharacter)
+        public void Print()
         {
-            case "farmer":
-                return ConsoleColor.Magenta;
-            case "wolf":
-                return ConsoleColor.Red;
-            case "rabbit":
-                return ConsoleColor.Green;
-            case "carrot":
-                return ConsoleColor.Yellow;
-            default:
-                return ConsoleColor.White;
-        }
-    }
-
-    private static void Print()
-    {
-        for (int i = 0; i < Beach.GetLength(0); i++)
-        {
-            Console.WriteLine($"Beach {i+1}");
-            for (int j = 0; j < Beach.GetLength(1); j++)
+            foreach (var stick in Sticks)
             {
-                if (Beach[i, j] != "")
-                {
-                    Console.ForegroundColor = GetCharacterColor(Beach[i, j]);
-                    Console.Write(Beach[i, j] + " ");
-                    Console.ForegroundColor = ConsoleColor.White;
-                }
-                else
-                {
-                    Console.ForegroundColor = ConsoleColor.White;
-                    Console.Write("Empty ");
-                }
+                if(!stick.IsTaken)
+                    Console.Write("|");
             }
             Console.WriteLine();
         }
+        
+        public void RemoveSticks(int amount)
+        {
+            int taken = 0;
+            foreach (var stick in Sticks)
+            {
+                if (!stick.IsTaken)
+                {
+                    stick.IsTaken = true;
+                    taken++;
+                }
+                
+                if(taken == amount)
+                    return;
+            }
+        }
     }
     
-    private static void Space()
+    private class Player(string name, bool isAi)
     {
-        Console.WriteLine();
+        public readonly string Name = name;
+        public bool IsAi = isAi;
+    }
+
+    #region Extensions
+    private static void SetNotation(this Pile[] piles, string notation)
+    {
+        string[] states = notation.Split("/");
+        for (int i = 0; i < states.Length; i++)
+        {
+            int sticksCount = int.Parse(states[i]);
+            for (int j = 0; j < sticksCount; j++)
+            {
+                piles[i].Sticks[j].IsTaken = false;
+            }
+        }
+    }
+    
+    private static string GetNotation(this Pile[] piles)
+    {
+        int pileCount = piles.Length;
+        string[] states = new string[pileCount];
+        for (int i = 0; i < pileCount; i++)
+        {
+            states[i] = piles[i].Sticks.Count(stick => !stick.IsTaken).ToString();
+        }
+        
+        string notation = string.Join("/", states);
+        
+        return notation;
+    }
+    
+    private static void Print(this Pile[] piles)
+    {
+        for (var i = 0; i < piles.Length; i++)
+        {
+            var pile = piles[i];
+            Console.Write(i + 1 + ": ");
+            pile.Print();
+        }
     }
     #endregion
+    
+    private static (int,int) BreakUpNotation(string notation)
+    {
+
+        string[] states = notation.Split("/");
+
+        int piles = states.Length;
+
+        int maxSticks = states.Select(int.Parse).Prepend(0).Max();
+
+        return (piles, maxSticks);
+    }
+    
+    private static int GetInput(string message, int min, int max)
+    {
+        while (true)
+        {
+            Console.WriteLine(message);
+            string? input = Console.ReadLine();
+            if (int.TryParse(input, out int result))
+            {
+                if (result >= min && result <= max)
+                {
+                    return result;
+                }
+            }
+        }
+    }
+
+
+    
 }
+
