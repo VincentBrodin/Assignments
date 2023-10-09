@@ -8,33 +8,50 @@ internal static class Program
     
     private static void Main(string[] args)
     {
+        //Rules
+        Console.WriteLine("Welcome to Nim!");
+        Console.WriteLine("The rules are simple:");
+        Console.WriteLine("There are X piles of sticks");
+        Console.WriteLine("Each player takes turns taking sticks from a pile");
+        Console.WriteLine("You can only take sticks from one pile per turn");
+        Console.WriteLine("You can only take 1 to N sticks from a pile");
+        Console.WriteLine("The player that takes the last stick wins");
         //Get players
-        int playerCount = GetInput("How many players? (1/2)", 1, 2);
+        int playerCount = GetInput("How many players? (0/1/2)", 0, 2);
         int currentPlayerIndex = 0;
         Player[] players = new Player[2];
-        if(playerCount == 1)
+        switch (playerCount)
         {
-            Console.WriteLine("Enter player 1 name");
-            string player1 = Console.ReadLine() ?? "Player 1";
-            players[0] = new Player(player1, false);
-            players[1] = new Player("AI", true);
-        }
-        else
-        {
-            Console.WriteLine("Enter player 1 name");
-            string player1 = Console.ReadLine() ?? "Player 1";
-            Console.WriteLine("Enter player 2 name");
-            string player2 = Console.ReadLine() ?? "Player 2";
+            case 0:
+                players[0] = new Player("AI1", true);
+                players[1] = new Player("AI2", true);
+                break;
+            case 1:
+            {
+                Console.WriteLine("Enter player 1 name");
+                string player1 = Console.ReadLine() ?? "Player 1";
+                players[0] = new Player(player1, false);
+                players[1] = new Player("AI", true);
+                break;
+            }
+            case 2:
+            {
+                Console.WriteLine("Enter player 1 name");
+                string player1 = Console.ReadLine() ?? "Player 1";
+                Console.WriteLine("Enter player 2 name");
+                string player2 = Console.ReadLine() ?? "Player 2";
             
-            players[0] = new Player(player1, false);
-            players[1] = new Player(player2, false);
+                players[0] = new Player(player1, false);
+                players[1] = new Player(player2, false);
+                break;
+            }
         }
-        
+
         Console.Clear();
         
         //Get start notation
         string startNotation = StartNotation;
-        Console.WriteLine("Do you want to enter your own start notation? (y/n)");
+        Console.WriteLine("Do you want to enter your own start notation?(E.g: 1/3/5/7) (y/n)");
         string? input = Console.ReadLine();
         if (input == "y")
         {
@@ -68,18 +85,29 @@ internal static class Program
             Console.WriteLine(currentPlayer.Name + "'s turn");
             piles.Print();
 
-            int chosenPile = 0, stickAmount = 0;
+            int chosenPile, stickAmount;
             if (currentPlayer.IsAi)
             {
-                (chosenPile, stickAmount) = CalculateAiMove(piles.GetNotation());
+                Console.WriteLine($"{currentPlayer.Name} is thinking...");
+                (chosenPile, stickAmount) = DetermineOptimalNimMove(piles.GetNotation());
+                Console.WriteLine($"{currentPlayer.Name} chose pile {chosenPile+1} and took {stickAmount} sticks. Press any key to continue");
+                Console.ReadKey();
             }
             else
             {
                 //Get pile
                 chosenPile = GetInput("Pick a pile", 1, piles.Length) - 1;
-            
+                if(piles[chosenPile].SticksLeft() == 0)
+                    while (piles[chosenPile].SticksLeft() == 0)
+                    {
+                        chosenPile = GetInput("Pick a pile", 1, piles.Length) - 1;
+                    }
+                //Print chosen pile
+                Console.Write("Pile " + (chosenPile + 1) + ": ");
+                piles[chosenPile].Print();
+                
                 //Get sticks
-                stickAmount = GetInput("Pick a number of sticks", 1, piles[chosenPile].Sticks.Count(stick => !stick.IsTaken));
+                stickAmount = GetInput("How many sticks do you want to take", 1, piles[chosenPile].SticksLeft());
                 
             }
 
@@ -87,16 +115,44 @@ internal static class Program
             
             if (piles.All(pile => pile.Sticks.All(stick => stick.IsTaken)))
             {
+                Console.WriteLine($"{currentPlayer.Name} Won :) Press any key to continue");
+                Console.ReadKey();
                 break;
             }
             
             currentPlayerIndex = (currentPlayerIndex + 1) % 2;
         }
     }
-
-    private static (int,int) CalculateAiMove(string notation)
+    
+    private static (int,int) DetermineOptimalNimMove(string notation)
     {
-        //TODO: Implement AI
+        // Calculate the nim-sum of the piles in O(n) 
+        string[] states = notation.Split("/");
+        int[] pilesOfSticks = Array.ConvertAll(states, int.Parse);
+        int nimSum = 0;
+        foreach (int count in pilesOfSticks)
+        {
+            nimSum ^= count;
+        }
+        for (int i = 0; i < pilesOfSticks.Length; i++)
+        {
+            int desiredCount = pilesOfSticks[i] ^ nimSum;
+            if (desiredCount < pilesOfSticks[i])
+            {
+                return (i, pilesOfSticks[i] - desiredCount);
+            }
+        }
+
+        // If no move can make the desired nim-sum, just make a valid move
+        for (int i = 0; i < pilesOfSticks.Length; i++)
+        {
+            if (pilesOfSticks[i] > 0)
+            {
+                return (i, 1);
+            }
+        }
+
+        // No valid move found (should not happen if game is not over)
         return (0, 0);
     }
 
@@ -119,6 +175,11 @@ internal static class Program
             Console.WriteLine();
         }
         
+        public int SticksLeft()
+        {
+            return Sticks.Count(stick => !stick.IsTaken);
+        }
+        
         public void RemoveSticks(int amount)
         {
             int taken = 0;
@@ -139,7 +200,7 @@ internal static class Program
     private class Player(string name, bool isAi)
     {
         public readonly string Name = name;
-        public bool IsAi = isAi;
+        public readonly bool IsAi = isAi;
     }
 
     #region Extensions
@@ -208,8 +269,4 @@ internal static class Program
             }
         }
     }
-
-
-    
 }
-
